@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { TranslationResult, Scenario } from './types';
 import { SCENARIOS } from './constants';
 import { translateToPositiveParenting } from './services/geminiService';
@@ -14,16 +14,45 @@ const App: React.FC = () => {
 
   const recognitionRef = useRef<any>(null);
 
+  // 檢查 API KEY 是否存在的輔助功能
+  const checkApiKey = async () => {
+    if (!process.env.API_KEY) {
+      const aistudio = (window as any).aistudio;
+      if (aistudio && typeof aistudio.openSelectKey === 'function') {
+        setError("偵測不到環境變數 API_KEY。正在嘗試開啟金鑰選取器...");
+        await aistudio.openSelectKey();
+        // 重新整理頁面以套用金鑰 (依照平台慣例)
+        window.location.reload();
+      } else {
+        setError("API 金鑰缺失，且無法開啟金鑰選取器。請檢查 Vercel 設定。");
+      }
+      return false;
+    }
+    return true;
+  };
+
   const handleTranslate = useCallback(async () => {
     if (!inputText.trim()) return;
+    
     setLoading(true);
     setError(null);
+    
     try {
       const data = await translateToPositiveParenting(inputText, selectedScenario);
       setResult(data);
-    } catch (err) {
-      setError("翻譯過程發生錯誤，請稍後再試。");
-      console.error(err);
+    } catch (err: any) {
+      // 顯示具體的錯誤訊息，而非模糊的提示
+      const errMsg = err.message || "翻譯失敗";
+      setError(`API 錯誤: ${errMsg}`);
+      console.error("Full error object:", err);
+      
+      // 如果是金鑰錯誤，嘗試提示用戶
+      if (errMsg.includes("API key") || errMsg.includes("Key not found")) {
+        const aistudio = (window as any).aistudio;
+        if (aistudio) {
+          setError("金鑰配置有誤。請點擊這裡重設金鑰或確認 Vercel 設定。");
+        }
+      }
     } finally {
       setLoading(false);
     }
@@ -46,7 +75,7 @@ const App: React.FC = () => {
         recognitionRef.current.start();
         setIsListening(true);
       } else {
-        alert("您的瀏覽器不支援語音辨識");
+        setError("您的瀏覽器不支援語音辨識");
       }
     }
   };
@@ -110,8 +139,19 @@ const App: React.FC = () => {
 
         {/* Error message */}
         {error && (
-          <div className="p-4 bg-red-50 text-red-600 rounded-2xl text-sm text-center border border-red-100">
-            {error}
+          <div className="p-4 bg-red-50 text-red-600 rounded-2xl text-sm border border-red-100 flex flex-col items-center gap-2">
+            <div className="flex items-center gap-2">
+              <i className="fa-solid fa-circle-exclamation"></i>
+              <span>{error}</span>
+            </div>
+            {error.includes("金鑰") && (
+              <button 
+                onClick={() => (window as any).aistudio?.openSelectKey()}
+                className="text-xs underline font-bold"
+              >
+                點此開啟金鑰選取器
+              </button>
+            )}
           </div>
         )}
 
@@ -120,7 +160,7 @@ const App: React.FC = () => {
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
             <div className="bg-orange-50 p-6 rounded-3xl border border-orange-100">
               <h3 className="text-[10px] font-bold text-orange-500 uppercase tracking-widest mb-3">溫和且堅定的建議</h3>
-              <p className="text-xl font-medium leading-relaxed text-slate-800">
+              <p className="text-xl font-medium leading-relaxed text-slate-800 whitespace-pre-wrap">
                 {result.translatedText}
               </p>
             </div>
@@ -160,5 +200,4 @@ const App: React.FC = () => {
   );
 };
 
-// Added default export to fix "Module has no default export" error in index.tsx
 export default App;
