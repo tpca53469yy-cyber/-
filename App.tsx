@@ -71,7 +71,8 @@ const App: React.FC = () => {
       
       triggerHaptic('medium');
     } catch (err: any) {
-      setError(err.message || "請檢查網路或金鑰設定後再試一次。");
+      // 顯示更詳細的錯誤，以便除錯
+      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -158,8 +159,9 @@ const App: React.FC = () => {
           />
 
           {error && (
-            <div className="mb-6 p-4 bg-red-50 text-red-500 rounded-3xl text-xs font-bold flex items-center border border-red-100">
-              <i className="fa-solid fa-circle-exclamation mr-3 text-sm"></i> {error}
+            <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-3xl text-[13px] font-bold flex items-center border border-red-100">
+              <i className="fa-solid fa-circle-exclamation mr-3 text-sm shrink-0"></i> 
+              <span className="break-all">{error}</span>
             </div>
           )}
 
