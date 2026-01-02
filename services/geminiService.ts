@@ -3,19 +3,18 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { TranslationResult, Scenario } from "../types";
 import { SYSTEM_INSTRUCTION } from "../constants";
 
-export const translateToPositiveParenting = async (text: string, scenario: Scenario): Promise<TranslationResult> => {
-  const apiKey = process.env.API_KEY;
-  
-  if (!apiKey) {
-    throw new Error("找不到 API 金鑰。請確認 Vercel 環境變數設定為 API_KEY，或者使用金鑰選取器。");
-  }
-
-  const ai = new GoogleGenAI({ apiKey });
+export const translateToPositiveParentingStream = async (
+  text: string, 
+  scenario: Scenario,
+  onChunk: (partialText: string) => void
+): Promise<TranslationResult> => {
+  // 直接使用環境變數中的 API_KEY。在 Vercel 設定後，此變數應自動注入。
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   try {
-    const response = await ai.models.generateContent({
+    const responseStream = await ai.models.generateContentStream({
       model: "gemini-3-flash-preview",
-      contents: `情境：${scenario}\n家長想說的話：${text}`,
+      contents: `情境：${scenario}\n家長原本想說的話：${text}`,
       config: {
         systemInstruction: SYSTEM_INSTRUCTION,
         responseMimeType: "application/json",
@@ -36,17 +35,30 @@ export const translateToPositiveParenting = async (text: string, scenario: Scena
       }
     });
 
-    const jsonStr = response.text;
-    if (!jsonStr) throw new Error("API 回傳內容為空");
-    
-    const result = JSON.parse(jsonStr.trim());
+    let fullContent = "";
+    for await (const chunk of responseStream) {
+      const chunkText = chunk.text;
+      fullContent += chunkText;
+      
+      // 即時解析 JSON 片段以獲得平滑的打字效果
+      try {
+        const match = fullContent.match(/"translatedText":\s*"([^"]*)"?/);
+        if (match && match[1]) {
+          const cleanText = match[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
+          onChunk(cleanText);
+        }
+      } catch (e) {
+        // 忽略解析中的 JSON 不完整錯誤
+      }
+    }
+
+    const result = JSON.parse(fullContent.trim());
     return {
       ...result,
       originalText: text
     };
   } catch (error: any) {
-    console.error("Gemini API Error Detail:", error);
-    // 拋出更具體的錯誤訊息
-    throw new Error(error.message || "呼叫 API 時發生未知錯誤");
+    console.error("Gemini API Error:", error);
+    throw error;
   }
 };
