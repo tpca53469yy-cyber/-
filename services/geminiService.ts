@@ -8,8 +8,21 @@ export const translateToPositiveParentingStream = async (
   scenario: Scenario,
   onChunk: (partialText: string) => void
 ): Promise<TranslationResult> => {
-  // Safe access to process.env
-  const apiKey = typeof process !== 'undefined' ? process.env.API_KEY : undefined;
+  // 嘗試從多個可能的注入點獲取 API Key
+  let apiKey: string | undefined;
+  
+  try {
+    // 1. 標準 Node/Vercel 注入
+    if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
+      apiKey = process.env.API_KEY;
+    }
+    // 2. 瀏覽器窗口注入 (部分打包工具)
+    else if (typeof window !== 'undefined' && (window as any).process?.env?.API_KEY) {
+      apiKey = (window as any).process.env.API_KEY;
+    }
+  } catch (e) {
+    console.warn("無法存取環境變數:", e);
+  }
 
   if (!apiKey || apiKey === "undefined" || apiKey === "") {
     throw new Error("API_KEY_MISSING");
@@ -54,7 +67,7 @@ export const translateToPositiveParentingStream = async (
           onChunk(match[1].replace(/\\n/g, '\n'));
         }
       } catch (e) {
-        // Ignore partial parse errors
+        // 忽略 JSON 尚未閉合時的解析錯誤
       }
     }
 
