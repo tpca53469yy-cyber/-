@@ -3,7 +3,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>親子溫暖譯站</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -12,24 +12,13 @@
         body {
             font-family: 'Noto Sans TC', sans-serif;
             background-color: #f8fafc;
-            -webkit-tap-highlight-color: transparent;
-        }
-        /* 隱藏滾動條但保留功能 */
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
         }
     </style>
 <script type="importmap">
 {
   "imports": {
-    "react": "https://esm.sh/react@^19.2.3",
     "react/": "https://esm.sh/react@^19.2.3/",
-    "react-dom": "https://esm.sh/react-dom@^19.2.3",
-    "react-dom/client": "https://esm.sh/react-dom@^19.2.3/client",
+    "react": "https://esm.sh/react@^19.2.3",
     "@google/genai": "https://esm.sh/@google/genai@^1.34.0",
     "react-dom/": "https://esm.sh/react-dom@^19.2.3/"
   }
@@ -37,18 +26,6 @@
 </script>
 </head>
 <body>
-    <div id="root">
-        <!-- 初始讀取畫面，防止完全空白 -->
-        <div style="height: 100vh; display: flex; align-items: center; justify-content: center; background: #f8fafc;">
-            <div style="text-align: center;">
-                <div style="width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #f97316; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 15px;"></div>
-                <p style="color: #64748b; font-size: 14px; font-weight: bold;">溫暖準備中...</p>
-            </div>
-        </div>
-    </div>
-    <style>
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    </style>
-    <script type="module" src="index.tsx"></script>
+    <div id="root"></div>
 </body>
 </html>
