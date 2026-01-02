@@ -8,22 +8,26 @@ export const translateToPositiveParentingStream = async (
   scenario: Scenario,
   onChunk: (partialText: string) => void
 ): Promise<TranslationResult> => {
-  // 直接引用環境變數
-  const apiKey = process.env.API_KEY;
-  
-  if (!apiKey) {
-    throw new Error("找不到 API 金鑰，請確認 Vercel 環境變數設定。");
-  }
+  // 安全地獲取 API Key，不再進行報錯攔截
+  const getApiKey = () => {
+    try {
+      return process.env.API_KEY;
+    } catch (e) {
+      return undefined;
+    }
+  };
 
-  // 每次調用時建立實例，確保獲取最新狀態
-  const ai = new GoogleGenAI({ apiKey });
+  const apiKey = getApiKey();
+  
+  // 建立新的 AI 實例
+  const ai = new GoogleGenAI({ apiKey: apiKey as string });
   
   try {
     const responseStream = await ai.models.generateContentStream({
       model: "gemini-3-flash-preview",
       contents: `情境：${scenario}\n家長原本想說的話：${text}`,
       config: {
-        systemInstruction: SYSTEM_INSTRUCTION + "\n\nCRITICAL: Output valid JSON ONLY. Start directly with {.",
+        systemInstruction: SYSTEM_INSTRUCTION + "\n\nCRITICAL: You MUST output valid JSON. Do not include markdown code blocks. Start your response with {.",
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -47,41 +51,34 @@ export const translateToPositiveParentingStream = async (
       const chunkText = chunk.text || "";
       fullContent += chunkText;
       
-      // 優化的流式解析邏輯
+      // 流式解析預覽：尋找 translatedText 的內容
       try {
-        // 嘗試找出 "translatedText" 欄位的內容
-        const translatedTextMatch = fullContent.match(/"translatedText"\s*:\s*"((?:[^"\\]|\\.)*)/);
-        if (translatedTextMatch && translatedTextMatch[1]) {
-          // 處理已完成或未完成的字串
-          let partial = translatedTextMatch[1];
-          // 如果字串已閉合，去掉結尾引號
+        const match = fullContent.match(/"translatedText"\s*:\s*"((?:[^"\\]|\\.)*)/);
+        if (match && match[1]) {
+          let partial = match[1];
+          // 如果偵測到引號閉合，截斷它
           if (partial.endsWith('"') && !partial.endsWith('\\"')) {
             partial = partial.slice(0, -1);
           }
-          const cleanText = partial.replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\\\/g, '\\');
-          onChunk(cleanText);
+          onChunk(partial.replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\\\/g, '\\'));
         }
-      } catch (e) {
-        // 解析中間過程出錯不中斷
-      }
+      } catch (e) {}
     }
 
-    // 最終解析完整的 JSON
+    // 最終解析
     const cleanJson = fullContent.replace(/^```json\s*|```$/g, "").trim();
-    try {
-      const parsed = JSON.parse(cleanJson);
-      return {
-        ...parsed,
-        originalText: text
-      };
-    } catch (parseError) {
-      console.error("JSON Parse Error:", fullContent);
-      throw new Error("內容解析失敗，請再試一次。");
-    }
+    const parsed = JSON.parse(cleanJson);
+    
+    return {
+      ...parsed,
+      originalText: text
+    };
   } catch (error: any) {
-    console.error("Gemini API Detail Error:", error);
-    // 拋出具體的錯誤訊息，而不是模糊的「系統忙碌」
-    const errorMessage = error.message || "未知錯誤";
-    throw new Error(`API 錯誤: ${errorMessage}`);
+    console.error("Gemini API Error:", error);
+    // 如果是金鑰問題，提供清楚的錯誤引導
+    if (error.message?.includes("API key") || error.message?.includes("403") || error.message?.includes("not found")) {
+      throw new Error("金鑰無效或未配置。若您在 Vercel 部署，請確保環境變數已設為 API_KEY。");
+    }
+    throw new Error("服務暫時無法回應，請稍後再試。");
   }
 };

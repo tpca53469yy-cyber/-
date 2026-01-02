@@ -19,6 +19,9 @@ const App: React.FC = () => {
   const recognitionRef = useRef<any>(null);
   const currentPlaceholder = SCENARIOS.find(s => s.type === selectedScenario)?.placeholder || '請輸入內容...';
 
+  // 檢查是否需要顯示金鑰選取按鈕 (僅限特定的 AI 預覽環境)
+  const [showKeyPicker, setShowKeyPicker] = useState(false);
+
   useEffect(() => {
     const savedHistory = localStorage.getItem('parenting_history');
     if (savedHistory) setHistory(JSON.parse(savedHistory));
@@ -27,6 +30,12 @@ const App: React.FC = () => {
     const handleOffline = () => setIsOnline(false);
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
+
+    // 檢查是否有 API Key
+    const apiKey = (window as any).process?.env?.API_KEY;
+    if (!apiKey) {
+      setShowKeyPicker(true);
+    }
 
     return () => {
       window.removeEventListener('online', handleOnline);
@@ -40,11 +49,14 @@ const App: React.FC = () => {
     }
   };
 
-  const copyUrl = () => {
-    navigator.clipboard.writeText(window.location.href);
-    setShowToast(true);
-    triggerHaptic('light');
-    setTimeout(() => setShowToast(false), 2000);
+  const handleOpenKeyPicker = async () => {
+    const aistudio = (window as any).aistudio;
+    if (aistudio && aistudio.openSelectKey) {
+      await aistudio.openSelectKey();
+      setShowKeyPicker(false);
+    } else {
+      setError("請確認 Vercel 中的 Environment Variables 已設定 API_KEY");
+    }
   };
 
   const handleTranslate = useCallback(async () => {
@@ -71,8 +83,11 @@ const App: React.FC = () => {
       
       triggerHaptic('medium');
     } catch (err: any) {
-      // 顯示更詳細的錯誤，以便除錯
       setError(err.message);
+      // 如果錯誤看起來像是金鑰問題，顯示選取按鈕
+      if (err.message.includes("金鑰") || err.message.includes("API key")) {
+        setShowKeyPicker(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -106,12 +121,6 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#fefaf6] text-slate-800 pb-20 font-sans">
-      {showToast && (
-        <div className="fixed top-10 left-1/2 -translate-x-1/2 bg-slate-800/90 backdrop-blur-md text-white px-6 py-2 rounded-full text-xs font-bold z-[60] shadow-2xl">
-          網址已複製！
-        </div>
-      )}
-
       {/* Header */}
       <nav className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-orange-50 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center space-x-2">
@@ -120,15 +129,15 @@ const App: React.FC = () => {
           </div>
           <span className="font-black text-xl tracking-tight bg-gradient-to-r from-orange-600 to-orange-400 bg-clip-text text-transparent">溫暖譯站</span>
         </div>
-        <div className="flex items-center space-x-4">
-          <button onClick={copyUrl} className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-orange-500 transition-colors">
-            <i className="fa-solid fa-share-nodes"></i>
+        
+        {showKeyPicker && (
+          <button 
+            onClick={handleOpenKeyPicker}
+            className="text-[10px] font-black bg-orange-100 text-orange-600 px-3 py-1.5 rounded-full hover:bg-orange-200 transition-colors"
+          >
+            <i className="fa-solid fa-key mr-1"></i> 設定金鑰
           </button>
-          <div className="flex items-center space-x-1 bg-slate-100 px-2 py-1 rounded-full">
-            <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-green-400' : 'bg-red-400'}`}></div>
-            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{isOnline ? 'Active' : 'Offline'}</span>
-          </div>
-        </div>
+        )}
       </nav>
 
       <main className="max-w-4xl mx-auto px-6 pt-8 space-y-8">
@@ -154,7 +163,7 @@ const App: React.FC = () => {
           <textarea
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
-            placeholder={isListening ? '請說，我正在聽...' : currentPlaceholder}
+            placeholder={isListening ? '正在聆聽您的心聲...' : currentPlaceholder}
             className="w-full h-44 bg-transparent border-0 focus:ring-0 text-2xl font-medium placeholder:text-slate-200 resize-none mb-6 leading-relaxed"
           />
 
@@ -189,7 +198,7 @@ const App: React.FC = () => {
                 className="flex-1 sm:flex-none px-12 h-16 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-3xl font-black text-base shadow-2xl shadow-orange-200 disabled:opacity-20 active:scale-95 transition-all hover:shadow-orange-300 flex items-center justify-center"
               >
                 {loading ? <i className="fa-solid fa-circle-notch fa-spin mr-3"></i> : <i className="fa-solid fa-wand-magic-sparkles mr-3"></i>}
-                {loading ? '轉化中' : '換句話說'}
+                {loading ? '轉換中' : '換句話說'}
               </button>
             </div>
           </div>
@@ -198,7 +207,7 @@ const App: React.FC = () => {
         {/* Result Card */}
         {(streamingText || result) && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-8 duration-700">
-            <div className="bg-white border-2 border-orange-100 rounded-[3.5rem] p-8 sm:p-12 shadow-2xl relative overflow-hidden group">
+            <div className="bg-white border-2 border-orange-100 rounded-[3.5rem] p-8 sm:p-12 shadow-2xl relative overflow-hidden">
                <div className="relative z-10 space-y-8">
                  <div className="flex items-center space-x-3">
                    <div className="h-0.5 w-8 bg-orange-500"></div>
@@ -230,11 +239,7 @@ const App: React.FC = () => {
         )}
 
         <footer className="text-center space-y-6 pt-12 pb-6">
-           <div className="flex justify-center items-center space-x-4 text-slate-300">
-             <div className="h-px w-8 bg-slate-200"></div>
-             <p className="text-[10px] font-bold uppercase tracking-[0.5em]">Healing Dialogue</p>
-             <div className="h-px w-8 bg-slate-200"></div>
-           </div>
+           <p className="text-[10px] text-slate-300 font-bold uppercase tracking-[0.5em]">Healing Dialogue</p>
            <p className="text-[10px] text-slate-300">© 溫暖譯站 · 專為愛與理解而生</p>
         </footer>
       </main>
