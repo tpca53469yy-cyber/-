@@ -25,7 +25,6 @@ const App: React.FC = () => {
 
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
-
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
@@ -72,7 +71,7 @@ const App: React.FC = () => {
       
       triggerHaptic('medium');
     } catch (err: any) {
-      setError(err.message || "連線異常，請重新嘗試。");
+      setError(err.message || "請檢查網路或金鑰設定後再試一次。");
     } finally {
       setLoading(false);
     }
@@ -108,11 +107,11 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-[#fefaf6] text-slate-800 pb-20 font-sans">
       {showToast && (
         <div className="fixed top-10 left-1/2 -translate-x-1/2 bg-slate-800/90 backdrop-blur-md text-white px-6 py-2 rounded-full text-xs font-bold z-[60] shadow-2xl">
-          網址已複製到剪貼簿！
+          網址已複製！
         </div>
       )}
 
-      {/* 導覽列 */}
+      {/* Header */}
       <nav className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-orange-50 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center space-x-2">
           <div className="w-9 h-9 bg-gradient-to-br from-orange-400 to-orange-600 rounded-xl flex items-center justify-center shadow-lg shadow-orange-100">
@@ -132,7 +131,7 @@ const App: React.FC = () => {
       </nav>
 
       <main className="max-w-4xl mx-auto px-6 pt-8 space-y-8">
-        {/* 情境切換區 */}
+        {/* Scenarios */}
         <div className="bg-white/50 backdrop-blur-sm rounded-[2.5rem] p-2 shadow-inner border border-white flex space-x-2 overflow-x-auto no-scrollbar scroll-smooth">
           {SCENARIOS.map((s) => (
             <button
@@ -149,10 +148,8 @@ const App: React.FC = () => {
           ))}
         </div>
 
-        {/* 輸入與主按鈕 */}
+        {/* Input Card */}
         <div className="bg-white rounded-[3.5rem] shadow-[0_20px_50px_rgba(251,146,60,0.12)] p-8 sm:p-12 border border-orange-50 relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-orange-200 to-transparent"></div>
-          
           <textarea
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
@@ -161,7 +158,7 @@ const App: React.FC = () => {
           />
 
           {error && (
-            <div className="mb-6 p-4 bg-red-50 text-red-500 rounded-3xl text-xs font-bold flex items-center border border-red-100 animate-pulse">
+            <div className="mb-6 p-4 bg-red-50 text-red-500 rounded-3xl text-xs font-bold flex items-center border border-red-100">
               <i className="fa-solid fa-circle-exclamation mr-3 text-sm"></i> {error}
             </div>
           )}
@@ -169,9 +166,9 @@ const App: React.FC = () => {
           <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
             <button 
               onClick={() => { setInputText(''); triggerHaptic('light'); }} 
-              className="text-slate-300 text-[11px] font-black tracking-[0.2em] hover:text-orange-400 active:scale-90 transition-all uppercase"
+              className="text-slate-300 text-[11px] font-black tracking-[0.2em] hover:text-orange-400 transition-all uppercase"
             >
-              <i className="fa-solid fa-trash-can mr-2"></i> 清除內容
+              <i className="fa-solid fa-trash-can mr-2"></i> 清除
             </button>
             <div className="flex items-center space-x-4 w-full sm:w-auto">
               <button
@@ -196,17 +193,14 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        {/* 翻譯結果展示 */}
+        {/* Result Card */}
         {(streamingText || result) && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-8 duration-700">
             <div className="bg-white border-2 border-orange-100 rounded-[3.5rem] p-8 sm:p-12 shadow-2xl relative overflow-hidden group">
-               <div className="absolute -top-12 -right-12 w-48 h-48 bg-orange-50 rounded-full opacity-40 group-hover:scale-110 transition-transform duration-1000"></div>
                <div className="relative z-10 space-y-8">
                  <div className="flex items-center space-x-3">
                    <div className="h-0.5 w-8 bg-orange-500"></div>
-                   <span className="text-orange-500 text-[10px] font-black uppercase tracking-[0.3em]">
-                     溫柔的轉換
-                   </span>
+                   <span className="text-orange-500 text-[10px] font-black uppercase tracking-[0.3em]">溫柔的轉換</span>
                  </div>
                  
                  <p className="text-3xl sm:text-4xl font-bold text-slate-800 leading-[1.4] whitespace-pre-wrap tracking-tight">
@@ -217,15 +211,11 @@ const App: React.FC = () => {
                  {result && (
                    <div className="grid grid-cols-1 md:grid-cols-2 gap-10 pt-10 border-t border-orange-50">
                      <div className="space-y-4">
-                       <h4 className="flex items-center text-[11px] font-black text-orange-400 uppercase tracking-[0.2em]">
-                         <i className="fa-solid fa-mountain mr-2"></i> 心理內在冰山
-                       </h4>
+                       <h4 className="flex items-center text-[11px] font-black text-orange-400 uppercase tracking-[0.2em]">心理內在冰山</h4>
                        <p className="text-base text-slate-500 leading-relaxed font-medium">{result.psychologicalContext}</p>
                      </div>
                      <div className="space-y-4">
-                       <h4 className="flex items-center text-[11px] font-black text-orange-400 uppercase tracking-[0.2em]">
-                         <i className="fa-solid fa-person-rays mr-2"></i> 當下具體行動
-                       </h4>
+                       <h4 className="flex items-center text-[11px] font-black text-orange-400 uppercase tracking-[0.2em]">當下具體行動</h4>
                        <div className="p-5 bg-orange-50 rounded-3xl border border-orange-100">
                          <p className="text-base text-orange-800 leading-relaxed font-bold">{result.suggestedAction}</p>
                        </div>
@@ -237,30 +227,11 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* 歷史紀錄與腳註 */}
-        <section className="bg-white rounded-[3rem] p-10 border border-orange-100/50 flex flex-col md:flex-row items-center gap-8 shadow-sm">
-           <div className="w-20 h-20 bg-orange-100 text-orange-500 rounded-3xl flex items-center justify-center shrink-0">
-             <i className="fa-solid fa-mobile-screen-button text-3xl"></i>
-           </div>
-           <div className="space-y-3 text-center md:text-left">
-             <h4 className="font-black text-lg text-slate-800">隨身攜帶的溫柔</h4>
-             <p className="text-sm text-slate-500 leading-relaxed max-w-xl">
-               在手機瀏覽器點選「加入主畫面」，將此站存為 App。<br/>
-               當情緒湧上、話要脫口而出前，讓溫柔的力量伴您左右。
-             </p>
-           </div>
-        </section>
-
         <footer className="text-center space-y-6 pt-12 pb-6">
-           <div className="flex justify-center items-center space-x-4">
+           <div className="flex justify-center items-center space-x-4 text-slate-300">
              <div className="h-px w-8 bg-slate-200"></div>
-             <p className="text-[10px] text-slate-300 font-bold uppercase tracking-[0.5em]">Healing Dialogue</p>
+             <p className="text-[10px] font-bold uppercase tracking-[0.5em]">Healing Dialogue</p>
              <div className="h-px w-8 bg-slate-200"></div>
-           </div>
-           <div className="flex flex-wrap justify-center gap-3">
-             {METHODOLOGIES.map(m => (
-               <span key={m.name} className="text-[10px] font-bold text-slate-400 border border-slate-100 px-4 py-1.5 rounded-full bg-white shadow-sm">{m.name}</span>
-             ))}
            </div>
            <p className="text-[10px] text-slate-300">© 溫暖譯站 · 專為愛與理解而生</p>
         </footer>
