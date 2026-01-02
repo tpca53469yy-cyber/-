@@ -1,5 +1,5 @@
 
-import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { TranslationResult, Scenario } from "../types";
 import { SYSTEM_INSTRUCTION } from "../constants";
 
@@ -8,24 +8,18 @@ export const translateToPositiveParentingStream = async (
   scenario: Scenario,
   onChunk: (partialText: string) => void
 ): Promise<TranslationResult> => {
-  // 嘗試獲取 API Key
+  // 直接從環境變數讀取
   const apiKey = process.env.API_KEY;
-
-  if (!apiKey || apiKey === "undefined" || apiKey === "") {
-    throw new Error("API_KEY_MISSING");
-  }
-
-  // 使用專業版模型：gemini-3-pro-preview
-  // 這能處理更細微的情緒與心理需求分析
-  const ai = new GoogleGenAI({ apiKey });
+  
+  // 初始化 AI 客戶端
+  const ai = new GoogleGenAI({ apiKey: apiKey || '' });
   
   try {
     const responseStream = await ai.models.generateContentStream({
-      model: "gemini-3-pro-preview",
+      model: "gemini-3-flash-preview",
       contents: `情境：${scenario}\n家長原本想說的話：${text}`,
       config: {
-        systemInstruction: SYSTEM_INSTRUCTION + "\n\nCRITICAL: Start with the 'translatedText' field immediately. Keep psychological context deep but concise.",
-        thinkingConfig: { thinkingBudget: 32768 }, // 為 Pro 模型提供思考空間
+        systemInstruction: SYSTEM_INSTRUCTION + "\n\nCRITICAL: Output JSON format ONLY. Start with the 'translatedText' field immediately.",
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -49,6 +43,7 @@ export const translateToPositiveParentingStream = async (
       const chunkText = chunk.text || "";
       fullContent += chunkText;
       
+      // 嘗試即時提取翻譯文字以顯示流式輸出效果
       try {
         const match = fullContent.match(/"translatedText"\s*:\s*"([^"]*)/);
         if (match && match[1]) {
@@ -64,10 +59,6 @@ export const translateToPositiveParentingStream = async (
     };
   } catch (error: any) {
     console.error("Gemini API Error:", error);
-    // 如果報錯包含「Requested entity was not found」，通常是 Key 的問題
-    if (error.message?.includes("not found") || error.message?.includes("403") || error.message?.includes("API key")) {
-      throw new Error("API_KEY_INVALID");
-    }
-    throw error;
+    throw new Error("服務暫時無法回應，請稍後再試。");
   }
 };

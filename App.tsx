@@ -13,75 +13,44 @@ const App: React.FC = () => {
   const [streamingText, setStreamingText] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [showDisclaimer, setShowDisclaimer] = useState(false);
   const [history, setHistory] = useState<TranslationResult[]>([]);
-  const [bootError, setBootError] = useState<string | null>(null);
   const [showToast, setShowToast] = useState(false);
-  const [needsKeySelection, setNeedsKeySelection] = useState(false);
   
-  // --- Live Mode & Audio Handling ---
-  const [isLiveMode, setIsLiveMode] = useState(false);
-  const [audioLevel, setAudioLevel] = useState(0);
-  const [liveAdvice, setLiveAdvice] = useState('我正在聽，請保持深呼吸...');
-  
-  const currentPlaceholder = SCENARIOS.find(s => s.type === selectedScenario)?.placeholder || '請輸入內容...';
   const recognitionRef = useRef<any>(null);
+  const currentPlaceholder = SCENARIOS.find(s => s.type === selectedScenario)?.placeholder || '請輸入內容...';
 
   useEffect(() => {
-    try {
-      const savedHistory = localStorage.getItem('parenting_history');
-      if (savedHistory) setHistory(JSON.parse(savedHistory));
+    const savedHistory = localStorage.getItem('parenting_history');
+    if (savedHistory) setHistory(JSON.parse(savedHistory));
 
-      const handleOnline = () => setIsOnline(true);
-      const handleOffline = () => setIsOnline(false);
-      window.addEventListener('online', handleOnline);
-      window.addEventListener('offline', handleOffline);
-      
-      const hasAccepted = localStorage.getItem('disclaimer_accepted');
-      if (!hasAccepted) setShowDisclaimer(true);
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
 
-      return () => {
-        window.removeEventListener('online', handleOnline);
-        window.removeEventListener('offline', handleOffline);
-      };
-    } catch (e) {
-      setBootError("啟動時發生錯誤，請重新整理頁面。");
-    }
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, []);
 
-  const saveToHistory = (newResult: TranslationResult) => {
-    const updated = [newResult, ...history].slice(0, 10);
-    setHistory(updated);
-    localStorage.setItem('parenting_history', JSON.stringify(updated));
-  };
-
-  const triggerHaptic = (type: 'light' | 'medium' | 'heavy' = 'light') => {
+  const triggerHaptic = (type: 'light' | 'medium' = 'light') => {
     if ('vibrate' in navigator) {
-      const patterns = { light: 10, medium: [30, 50, 30], heavy: [100, 50, 100] };
-      navigator.vibrate(patterns[type]);
+      navigator.vibrate(type === 'light' ? 10 : 30);
     }
   };
 
-  const copyUrlToClipboard = () => {
+  const copyUrl = () => {
     navigator.clipboard.writeText(window.location.href);
     setShowToast(true);
     triggerHaptic('light');
     setTimeout(() => setShowToast(false), 2000);
   };
 
-  // 處理 API Key 選取
-  const handleOpenKeySelection = async () => {
-    if ((window as any).aistudio) {
-      await (window as any).aistudio.openSelectKey();
-      setNeedsKeySelection(false);
-      setError(null);
-      // 選取後自動重試翻譯
-      if (inputText.trim()) handleTranslate();
-    }
-  };
-
   const handleTranslate = useCallback(async () => {
     if (!inputText.trim() || loading) return;
+    
     triggerHaptic('light');
     setLoading(true);
     setError(null);
@@ -96,39 +65,18 @@ const App: React.FC = () => {
       );
       setResult(data);
       setStreamingText(data.translatedText);
-      saveToHistory(data);
+      
+      const updatedHistory = [data, ...history].slice(0, 5);
+      setHistory(updatedHistory);
+      localStorage.setItem('parenting_history', JSON.stringify(updatedHistory));
+      
       triggerHaptic('medium');
     } catch (err: any) {
-      if (err.message === "API_KEY_MISSING" || err.message === "API_KEY_INVALID") {
-        setNeedsKeySelection(true);
-        setError("需要 API 金鑰授權以啟用高級教養模型。");
-      } else {
-        setError("連線失敗：請檢查網路或稍後再試。");
-      }
-      console.error(err);
+      setError(err.message || "連線異常，請重新嘗試。");
     } finally {
       setLoading(false);
     }
   }, [inputText, selectedScenario, loading, history]);
-
-  const toggleLiveMode = useCallback(async () => {
-    if (!isOnline) {
-      setError('連線已中斷，無法啟動陪伴模式');
-      return;
-    }
-    triggerHaptic('medium');
-    if (isLiveMode) {
-      setIsLiveMode(false);
-    } else {
-      try {
-        await navigator.mediaDevices.getUserMedia({ audio: true });
-        setIsLiveMode(true);
-        setLiveAdvice('已連線。我會自動捕捉衝突瞬間，為您提供即時支援...');
-      } catch (err) {
-        setError('無法取得麥克風權限');
-      }
-    }
-  }, [isLiveMode, isOnline]);
 
   const toggleListening = useCallback(() => {
     triggerHaptic('light');
@@ -136,242 +84,165 @@ const App: React.FC = () => {
       recognitionRef.current?.stop();
     } else {
       setError(null);
-      setResult(null);
-      setStreamingText('');
-      try {
-        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-        if (SpeechRecognition) {
-          if (!recognitionRef.current) {
-            recognitionRef.current = new SpeechRecognition();
-            recognitionRef.current.continuous = true;
-            recognitionRef.current.onresult = (e: any) => {
-              let t = '';
-              for (let i = e.resultIndex; i < e.results.length; i++) t += e.results[i][0].transcript;
-              setInputText(prev => prev + t);
-            };
-            recognitionRef.current.onend = () => setIsListening(false);
-          }
-          recognitionRef.current.start();
-          setIsListening(true);
-        } else {
-          setError('您的瀏覽器不支援語音辨識');
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        if (!recognitionRef.current) {
+          recognitionRef.current = new SpeechRecognition();
+          recognitionRef.current.continuous = true;
+          recognitionRef.current.onresult = (e: any) => {
+            let t = '';
+            for (let i = e.resultIndex; i < e.results.length; i++) t += e.results[i][0].transcript;
+            setInputText(prev => prev + t);
+          };
+          recognitionRef.current.onend = () => setIsListening(false);
         }
-      } catch (err) {
-        setError('麥克風啟動失敗');
+        recognitionRef.current.start();
+        setIsListening(true);
+      } else {
+        setError('瀏覽器不支援語音辨識');
       }
     }
   }, [isListening]);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 pb-12 select-none overflow-x-hidden font-sans">
-      {/* Toast Notification */}
+    <div className="min-h-screen bg-[#fcfcfd] text-slate-800 pb-20 font-sans">
       {showToast && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-6 py-2 rounded-full text-xs font-bold z-[60] shadow-xl animate-in fade-in slide-in-from-top-4">
-          網址已複製，快傳送到手機吧！
+        <div className="fixed top-10 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-6 py-2 rounded-full text-xs font-bold z-[60] shadow-2xl">
+          網址已複製到剪貼簿！
         </div>
       )}
 
-      {!isOnline && (
-        <div className="bg-red-500 text-white text-[10px] py-2 text-center font-bold sticky top-0 z-50">
-          <i className="fa-solid fa-cloud-slash mr-1"></i> 離線模式：翻譯功能暫時受限
+      {/* 導覽列 */}
+      <nav className="sticky top-0 z-40 bg-white/70 backdrop-blur-xl border-b border-slate-100 px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center space-x-2">
+          <div className="w-8 h-8 bg-orange-500 rounded-xl flex items-center justify-center shadow-lg shadow-orange-100">
+            <i className="fa-solid fa-heart text-white text-xs"></i>
+          </div>
+          <span className="font-black text-lg tracking-tight">溫暖譯站</span>
         </div>
-      )}
+        <div className="flex items-center space-x-4">
+          <button onClick={copyUrl} className="text-slate-400 hover:text-orange-500 transition-colors">
+            <i className="fa-solid fa-share-nodes"></i>
+          </button>
+          <div className="flex items-center space-x-1">
+            <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-green-400' : 'bg-red-400'}`}></div>
+            <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">{isOnline ? 'Active' : 'Offline'}</span>
+          </div>
+        </div>
+      </nav>
 
-      {showDisclaimer && (
-        <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-[100] flex items-center justify-center p-8">
-          <div className="bg-white rounded-[3rem] p-8 max-w-sm w-full shadow-2xl space-y-6 animate-in zoom-in-95 duration-500">
-            <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 mx-auto">
-              <i className="fa-solid fa-shield-heart text-2xl"></i>
-            </div>
-            <div className="text-center space-y-2">
-              <h3 className="font-black text-xl text-slate-800">準備好給孩子溫暖了嗎？</h3>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                這是您的專屬溝通工具。**實測建議**：在手機瀏覽器點選「加入主畫面」以獲得全螢幕 App 體驗。
-              </p>
-            </div>
-            <button 
-              onClick={() => { localStorage.setItem('disclaimer_accepted', 'true'); setShowDisclaimer(false); triggerHaptic('heavy'); }}
-              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-4 rounded-2xl shadow-lg shadow-orange-200 transition-all active:scale-95"
+      <main className="max-w-4xl mx-auto px-6 pt-8 space-y-8">
+        {/* 情境切換區 */}
+        <div className="bg-white rounded-[2.5rem] p-2 shadow-sm border border-slate-50 flex space-x-2 overflow-x-auto no-scrollbar scroll-smooth">
+          {SCENARIOS.map((s) => (
+            <button
+              key={s.type}
+              onClick={() => { triggerHaptic('light'); setSelectedScenario(s.type); }}
+              className={`flex-shrink-0 px-5 py-3 rounded-2xl text-[11px] font-black transition-all ${
+                selectedScenario === s.type 
+                  ? 'bg-slate-900 text-white shadow-xl' 
+                  : 'text-slate-400 hover:bg-slate-50'
+              }`}
             >
-              開始溫暖對話
+              <i className={`fa-solid ${s.icon} mr-2`}></i> {s.type}
             </button>
+          ))}
+        </div>
+
+        {/* 輸入與主按鈕 */}
+        <div className="bg-white rounded-[3rem] shadow-2xl shadow-slate-200/50 p-8 sm:p-10 border border-slate-50 relative">
+          <textarea
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            placeholder={isListening ? '請說，我正在聽...' : currentPlaceholder}
+            className="w-full h-40 bg-transparent border-0 focus:ring-0 text-xl font-medium placeholder:text-slate-200 resize-none mb-8"
+          />
+
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 text-red-500 rounded-2xl text-xs font-bold flex items-center">
+              <i className="fa-solid fa-circle-exclamation mr-3 text-sm"></i> {error}
+            </div>
+          )}
+
+          <div className="flex items-center justify-between">
+            <button onClick={() => { setInputText(''); triggerHaptic('light'); }} className="text-slate-300 text-[11px] font-black tracking-widest hover:text-slate-400 active:scale-90 transition-all">
+              清除內容
+            </button>
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={toggleListening}
+                className={`w-14 h-14 rounded-full flex items-center justify-center transition-all shadow-lg ${
+                  isListening ? 'bg-red-500 text-white animate-pulse shadow-red-100' : 'bg-slate-100 text-slate-500'
+                }`}
+              >
+                <i className={`fa-solid ${isListening ? 'fa-stop text-xl' : 'fa-microphone text-xl'}`}></i>
+              </button>
+              <button
+                onClick={handleTranslate}
+                disabled={loading || !inputText.trim()}
+                className="px-10 h-14 bg-orange-500 text-white rounded-full font-black text-sm shadow-xl shadow-orange-200 disabled:opacity-20 active:scale-95 transition-all"
+              >
+                {loading ? <i className="fa-solid fa-circle-notch fa-spin mr-2"></i> : null}
+                {loading ? '轉化中' : '換句話說'}
+              </button>
+            </div>
           </div>
         </div>
-      )}
 
-      <header className="bg-white/80 backdrop-blur-md border-b border-slate-100 sticky top-0 z-30 pt-[env(safe-area-inset-top)]">
-        <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-orange-400 to-orange-600 rounded-xl shadow-lg shadow-orange-200 flex items-center justify-center">
-              <i className="fa-solid fa-heart text-white text-xs"></i>
-            </div>
-            <span className="font-black tracking-tighter text-slate-800">溫暖譯站</span>
-          </div>
-          <div className="flex items-center space-x-3">
-            <button onClick={copyUrlToClipboard} className="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-orange-500 transition-colors">
-              <i className="fa-solid fa-share-nodes text-sm"></i>
-            </button>
-            <button onClick={toggleLiveMode} className={`flex items-center space-x-2 px-4 py-2 rounded-full text-[10px] font-black transition-all active:scale-90 ${isLiveMode ? 'bg-red-500 text-white shadow-lg shadow-red-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
-              <div className={`w-1.5 h-1.5 rounded-full ${isLiveMode ? 'bg-white animate-pulse' : 'bg-slate-400'}`}></div>
-              <span>{isLiveMode ? '陪伴中' : '啟動陪伴'}</span>
-            </button>
-          </div>
-        </div>
-      </header>
+        {/* 翻譯結果展示 */}
+        {(streamingText || result) && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-6 duration-700">
+            <div className="bg-white border-2 border-orange-100 rounded-[3rem] p-8 sm:p-10 shadow-xl relative overflow-hidden">
+               <div className="absolute top-0 right-0 w-32 h-32 bg-orange-50 rounded-full -mr-16 -mt-16 opacity-50"></div>
+               <div className="relative z-10 space-y-6">
+                 <div className="flex items-center space-x-2">
+                   <span className="bg-orange-500 text-white text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest">
+                     Warm Response
+                   </span>
+                 </div>
+                 <p className="text-2xl sm:text-3xl font-bold text-slate-800 leading-[1.4] whitespace-pre-wrap">
+                   「{streamingText}」
+                   {loading && !result && <span className="inline-block w-1.5 h-7 ml-1 bg-orange-300 animate-pulse"></span>}
+                 </p>
 
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 mt-6 sm:mt-8 space-y-6 sm:space-y-8">
-        {/* API Key 授權 UI */}
-        {needsKeySelection && (
-          <div className="bg-white border-2 border-red-200 rounded-[2.5rem] p-8 shadow-xl animate-in zoom-in-95">
-            <div className="flex items-center space-x-4 mb-6">
-              <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center text-red-500">
-                <i className="fa-solid fa-key text-xl"></i>
-              </div>
-              <div>
-                <h3 className="font-black text-slate-800">需要授權 API 金鑰</h3>
-                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">To access Gemini Pro reasoning</p>
-              </div>
-            </div>
-            <p className="text-xs text-slate-600 leading-relaxed mb-6">
-              為了提供更精準、更有溫度的溝通建議，本工具使用 Google 的高級 AI 模型。請點擊下方按鈕選取您的 API Key 以繼續。
-              如果您還沒有付費計畫，請參閱 <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" className="text-orange-500 underline">計費文件說明</a>。
-            </p>
-            <button 
-              onClick={handleOpenKeySelection}
-              className="w-full bg-slate-900 text-white font-black py-4 rounded-2xl shadow-lg active:scale-95 transition-all"
-            >
-              授權 API 金鑰
-            </button>
-          </div>
-        )}
-
-        {isLiveMode && (
-          <div className="relative group">
-            <div className="absolute -inset-1 bg-gradient-to-r from-orange-400 to-red-400 rounded-[3rem] blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
-            <div className="relative bg-slate-900 rounded-[3rem] p-8 shadow-2xl overflow-hidden min-h-[300px] flex flex-col justify-between border border-white/10">
-              <div className="flex justify-between items-center mb-8">
-                <div className="bg-orange-500/10 border border-orange-500/20 px-3 py-1 rounded-full text-orange-400 text-[9px] font-black tracking-widest uppercase">Real-time Support</div>
-                <div className="flex items-end space-x-1 h-6">
-                  {[...Array(12)].map((_, i) => (
-                    <div key={i} className="w-1 bg-orange-500 rounded-full transition-all duration-150" style={{ height: `${Math.random() * (audioLevel / (i+1) + 10)}%` }}></div>
-                  ))}
-                </div>
-              </div>
-              <div className="space-y-6">
-                <h2 className="text-white text-xl sm:text-2xl font-bold leading-tight">{liveAdvice}</h2>
-                <div className="bg-white/5 border border-white/10 px-4 py-2 rounded-2xl text-[10px] text-slate-400 font-bold inline-block"><i className="fa-solid fa-shield-halved mr-2 text-blue-400"></i> 抗噪模式已啟動</div>
-              </div>
-              <div className="mt-8 pt-6 border-t border-white/5 flex items-center justify-between">
-                <p className="text-[10px] text-slate-500 font-medium">手機放在身邊即可生效</p>
-                <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]"></div>
-              </div>
+                 {result && (
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-8 border-t border-slate-50">
+                     <div className="space-y-3">
+                       <h4 className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">心理內在冰山</h4>
+                       <p className="text-sm text-slate-500 leading-relaxed">{result.psychologicalContext}</p>
+                     </div>
+                     <div className="space-y-3">
+                       <h4 className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">當下具體行動</h4>
+                       <p className="text-sm text-slate-500 leading-relaxed font-bold">{result.suggestedAction}</p>
+                     </div>
+                   </div>
+                 )}
+               </div>
             </div>
           </div>
         )}
 
-        {!isLiveMode && (streamingText || result) && (
-          <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-500">
-            <div className="bg-white border-2 border-orange-400 rounded-[2.5rem] sm:rounded-[3rem] p-6 sm:p-8 shadow-2xl shadow-orange-100/50 relative">
-              <div className="absolute -top-3 left-8 bg-orange-500 text-white text-[10px] font-black px-4 py-1 rounded-full shadow-lg">
-                <i className="fa-solid fa-wand-magic-sparkles mr-1"></i> SUGGESTED RESPONSE
-              </div>
-              <p className="text-xl sm:text-3xl font-black text-slate-800 leading-[1.3] mt-2 whitespace-pre-wrap">「{streamingText}」</p>
-              {result && (
-                <div className="mt-6 pt-6 sm:mt-8 sm:pt-8 border-t border-slate-50 grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-                  <div className="bg-slate-50 p-4 sm:p-5 rounded-[2rem] border border-slate-100">
-                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">心理需求洞察</div>
-                    <p className="text-xs text-slate-600 leading-relaxed font-medium">{result.psychologicalContext}</p>
-                  </div>
-                  <div className="bg-orange-50 p-4 sm:p-5 rounded-[2rem] border border-orange-100">
-                    <div className="text-[9px] font-black text-orange-500 uppercase tracking-widest mb-2">建議當下行動</div>
-                    <p className="text-xs text-orange-800/80 leading-relaxed font-bold">{result.suggestedAction}</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {!isLiveMode && (
-          <div className={`bg-white rounded-[2.5rem] sm:rounded-[3rem] shadow-sm border transition-all duration-500 overflow-hidden ${isListening ? 'border-red-400 ring-[6px] ring-red-50' : 'border-slate-200'}`}>
-            <div className="px-4 sm:px-6 py-4 bg-slate-50/50 border-b border-slate-100 flex space-x-3 overflow-x-auto no-scrollbar scroll-smooth">
-              {SCENARIOS.map((s) => (
-                <button key={s.type} onClick={() => { setSelectedScenario(s.type); triggerHaptic('light'); }} className={`whitespace-nowrap px-4 py-2 rounded-2xl text-[11px] font-black transition-all active:scale-90 ${selectedScenario === s.type ? 'bg-slate-800 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-100'}`}>
-                  <i className={`fa-solid ${s.icon} mr-2`}></i> {s.type}
-                </button>
-              ))}
-            </div>
-            <div className="p-6 sm:p-8">
-              <textarea value={inputText} onChange={(e) => setInputText(e.target.value)} placeholder={isListening ? '我正在傾聽您的感受...' : currentPlaceholder} className={`w-full transition-all duration-300 text-lg sm:text-xl font-medium border-0 bg-transparent focus:ring-0 outline-none resize-none placeholder:text-slate-200 ${result ? 'h-24' : 'h-40'}`} />
-              {error && <div className="bg-red-50 text-red-500 p-4 rounded-2xl text-[11px] font-bold mb-4 flex items-center"><i className="fa-solid fa-circle-exclamation mr-2"></i>{error}</div>}
-              <div className="flex justify-between items-center pt-6 border-t border-slate-50">
-                <button onClick={() => { setInputText(''); triggerHaptic('light'); }} className="text-slate-300 text-[11px] font-black px-2 active:text-slate-500">清除內容</button>
-                <div className="flex space-x-4">
-                  <button onClick={toggleListening} className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center transition-all active:scale-90 ${isListening ? 'bg-red-500 text-white animate-pulse shadow-xl shadow-red-200' : 'bg-slate-100 text-slate-600'}`}>
-                    <i className={`fa-solid ${isListening ? 'fa-stop text-lg' : 'fa-microphone text-xl'}`}></i>
-                  </button>
-                  <button onClick={handleTranslate} disabled={loading || !inputText.trim()} className="px-6 sm:px-8 bg-orange-500 text-white rounded-full font-black text-sm shadow-xl shadow-orange-200 disabled:bg-slate-100 disabled:text-slate-300 transition-all active:scale-95">
-                    {loading ? <i className="fa-solid fa-circle-notch fa-spin"></i> : '翻譯成溫暖'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {history.length > 0 && !isLiveMode && (
-          <section className="space-y-4">
-            <div className="flex justify-between items-end px-2">
-               <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">最近的溫暖紀錄</h3>
-               <button onClick={() => { setHistory([]); localStorage.removeItem('parenting_history'); triggerHaptic('light'); }} className="text-[10px] text-slate-300 font-bold hover:text-red-400">清空全部</button>
-            </div>
-            <div className="grid grid-cols-1 gap-4">
-              {history.map((h, i) => (
-                <div key={i} className="bg-white p-5 sm:p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col space-y-2 animate-in slide-in-from-left-4 duration-300">
-                  <p className="text-[9px] text-slate-400 font-bold line-clamp-1">您原本說：{h.originalText}</p>
-                  <p className="text-sm font-bold text-slate-700 leading-relaxed">「{h.translatedText}」</p>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        <section className="bg-orange-50 p-6 sm:p-8 rounded-[2.5rem] border border-orange-100">
-          <div className="flex items-start space-x-4">
-            <div className="text-orange-500 mt-1"><i className="fa-solid fa-mobile-screen-button text-2xl"></i></div>
-            <div className="space-y-2">
-              <h4 className="font-black text-orange-900 text-sm">如何獲得完整體驗？</h4>
-              <p className="text-[11px] text-orange-800/70 leading-relaxed">
-                1. 點擊頂部分享按鈕複製網址傳到手機。<br/>
-                2. 在手機瀏覽器選單點選「加入主畫面」。<br/>
-                3. 從桌面開啟後，將擁有全螢幕 App 般的順暢感。
-              </p>
-            </div>
-          </div>
+        {/* 歷史紀錄與腳註 */}
+        <section className="bg-orange-50 p-8 rounded-[3rem] border border-orange-100 flex items-start space-x-6">
+           <div className="text-orange-500 mt-1"><i className="fa-solid fa-mobile-screen text-2xl"></i></div>
+           <div className="space-y-2">
+             <h4 className="font-black text-sm text-orange-900">手機專屬溫暖建議</h4>
+             <p className="text-[11px] text-orange-800/60 leading-relaxed">
+               在手機瀏覽器點選「加入主畫面」，將此站存為 App。<br/>
+               當情緒湧上時，隨時拿出手機，讓溫柔的力量伴您左右。
+             </p>
+           </div>
         </section>
 
-        <section className="bg-slate-800 rounded-[2.5rem] sm:rounded-[3rem] p-8 sm:p-10 text-white relative overflow-hidden">
-          <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="md:col-span-1">
-              <h3 className="text-[10px] font-black text-orange-400 uppercase tracking-[0.2em] mb-4">Core Theories</h3>
-              <p className="text-[11px] text-slate-400 leading-relaxed">我們整合了全球公認的三大教養體系，將冰冷的心理學轉化為您口袋裡的溫柔力量。</p>
-            </div>
-            <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-              {METHODOLOGIES.map((m, i) => (
-                <div key={i} className="bg-white/5 p-4 sm:p-5 rounded-3xl border border-white/5">
-                  <div className="text-[11px] font-black text-orange-200 mb-2">{m.name}</div>
-                  <p className="text-[10px] text-slate-400 leading-relaxed">{m.desc}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
+        <footer className="text-center space-y-4 pt-8">
+           <p className="text-[10px] text-slate-300 font-bold uppercase tracking-[0.4em]">Healing Through Dialogue</p>
+           <div className="flex justify-center space-x-4">
+             {METHODOLOGIES.map(m => (
+               <span key={m.name} className="text-[9px] text-slate-300 border border-slate-100 px-3 py-1 rounded-full">{m.name}</span>
+             ))}
+           </div>
+        </footer>
       </main>
-
-      <footer className="mt-16 py-12 text-center px-10 border-t border-slate-100 mb-[env(safe-area-inset-bottom)]">
-        <div className="text-[9px] text-slate-400 font-black uppercase tracking-[0.3em] mb-6">Parenting Warm Station</div>
-        <p className="text-[11px] text-slate-400 leading-loose max-w-xs mx-auto">「沒有任何一種翻譯，比您的愛更有力量。」<br/>這是一個專為您與孩子設計的避風港。</p>
-      </footer>
     </div>
   );
 };
