@@ -17,6 +17,7 @@ const App: React.FC = () => {
   const [history, setHistory] = useState<TranslationResult[]>([]);
   const [bootError, setBootError] = useState<string | null>(null);
   const [showToast, setShowToast] = useState(false);
+  const [needsKeySelection, setNeedsKeySelection] = useState(false);
   
   // --- Live Mode & Audio Handling ---
   const [isLiveMode, setIsLiveMode] = useState(false);
@@ -68,6 +69,17 @@ const App: React.FC = () => {
     setTimeout(() => setShowToast(false), 2000);
   };
 
+  // 處理 API Key 選取
+  const handleOpenKeySelection = async () => {
+    if ((window as any).aistudio) {
+      await (window as any).aistudio.openSelectKey();
+      setNeedsKeySelection(false);
+      setError(null);
+      // 選取後自動重試翻譯
+      if (inputText.trim()) handleTranslate();
+    }
+  };
+
   const handleTranslate = useCallback(async () => {
     if (!inputText.trim() || loading) return;
     triggerHaptic('light');
@@ -87,12 +99,11 @@ const App: React.FC = () => {
       saveToHistory(data);
       triggerHaptic('medium');
     } catch (err: any) {
-      if (err.message === "API_KEY_MISSING") {
-        setError("尚未設定 API Key。請在 Vercel Settings > Environment Variables 中新增 API_KEY。");
-      } else if (err.message === "API_KEY_INVALID") {
-        setError("API Key 無效或已過期。請確認您使用的是付費計畫或正確的 Key。");
+      if (err.message === "API_KEY_MISSING" || err.message === "API_KEY_INVALID") {
+        setNeedsKeySelection(true);
+        setError("需要 API 金鑰授權以啟用高級教養模型。");
       } else {
-        setError("連線失敗：請檢查網路或 API Key 設定。");
+        setError("連線失敗：請檢查網路或稍後再試。");
       }
       console.error(err);
     } finally {
@@ -150,17 +161,6 @@ const App: React.FC = () => {
       }
     }
   }, [isListening]);
-
-  if (bootError) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-10">
-        <div className="bg-white p-8 rounded-3xl shadow-xl text-center space-y-4">
-          <i className="fa-solid fa-triangle-exclamation text-red-500 text-4xl"></i>
-          <p className="font-bold text-slate-800">{bootError}</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 pb-12 select-none overflow-x-hidden font-sans">
@@ -220,6 +220,31 @@ const App: React.FC = () => {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 mt-6 sm:mt-8 space-y-6 sm:space-y-8">
+        {/* API Key 授權 UI */}
+        {needsKeySelection && (
+          <div className="bg-white border-2 border-red-200 rounded-[2.5rem] p-8 shadow-xl animate-in zoom-in-95">
+            <div className="flex items-center space-x-4 mb-6">
+              <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center text-red-500">
+                <i className="fa-solid fa-key text-xl"></i>
+              </div>
+              <div>
+                <h3 className="font-black text-slate-800">需要授權 API 金鑰</h3>
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">To access Gemini Pro reasoning</p>
+              </div>
+            </div>
+            <p className="text-xs text-slate-600 leading-relaxed mb-6">
+              為了提供更精準、更有溫度的溝通建議，本工具使用 Google 的高級 AI 模型。請點擊下方按鈕選取您的 API Key 以繼續。
+              如果您還沒有付費計畫，請參閱 <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" className="text-orange-500 underline">計費文件說明</a>。
+            </p>
+            <button 
+              onClick={handleOpenKeySelection}
+              className="w-full bg-slate-900 text-white font-black py-4 rounded-2xl shadow-lg active:scale-95 transition-all"
+            >
+              授權 API 金鑰
+            </button>
+          </div>
+        )}
+
         {isLiveMode && (
           <div className="relative group">
             <div className="absolute -inset-1 bg-gradient-to-r from-orange-400 to-red-400 rounded-[3rem] blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>

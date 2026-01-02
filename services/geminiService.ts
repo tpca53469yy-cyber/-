@@ -8,24 +8,24 @@ export const translateToPositiveParentingStream = async (
   scenario: Scenario,
   onChunk: (partialText: string) => void
 ): Promise<TranslationResult> => {
-  // 優先從 Vercel 注入的標準環境變數讀取
+  // 嘗試獲取 API Key
   const apiKey = process.env.API_KEY;
 
   if (!apiKey || apiKey === "undefined" || apiKey === "") {
-    console.error("API Key 缺失，請檢查 Vercel 環境變數設定。");
     throw new Error("API_KEY_MISSING");
   }
 
-  // 每次調用都創建新實例以確保抓到最新的 Key
+  // 使用專業版模型：gemini-3-pro-preview
+  // 這能處理更細微的情緒與心理需求分析
   const ai = new GoogleGenAI({ apiKey });
   
   try {
     const responseStream = await ai.models.generateContentStream({
-      model: "gemini-3-flash-preview",
+      model: "gemini-3-pro-preview",
       contents: `情境：${scenario}\n家長原本想說的話：${text}`,
       config: {
-        systemInstruction: SYSTEM_INSTRUCTION + "\n\nCRITICAL: Start with the 'translatedText' field immediately. Be as concise and fast as possible.",
-        thinkingConfig: { thinkingBudget: 0 },
+        systemInstruction: SYSTEM_INSTRUCTION + "\n\nCRITICAL: Start with the 'translatedText' field immediately. Keep psychological context deep but concise.",
+        thinkingConfig: { thinkingBudget: 32768 }, // 為 Pro 模型提供思考空間
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -39,7 +39,6 @@ export const translateToPositiveParentingStream = async (
             suggestedAction: { type: Type.STRING },
             frameworkReference: { type: Type.STRING }
           },
-          propertyOrdering: ["translatedText", "principles", "psychologicalContext", "suggestedAction", "frameworkReference"],
           required: ["translatedText", "principles", "psychologicalContext", "suggestedAction", "frameworkReference"]
         }
       }
@@ -51,14 +50,11 @@ export const translateToPositiveParentingStream = async (
       fullContent += chunkText;
       
       try {
-        // 嘗試提取正在生成的翻譯文字，提供即時體感
         const match = fullContent.match(/"translatedText"\s*:\s*"([^"]*)/);
         if (match && match[1]) {
           onChunk(match[1].replace(/\\n/g, '\n'));
         }
-      } catch (e) {
-        // 忽略 JSON 尚未閉合時的解析錯誤
-      }
+      } catch (e) {}
     }
 
     const parsed = JSON.parse(fullContent);
@@ -67,7 +63,9 @@ export const translateToPositiveParentingStream = async (
       originalText: text
     };
   } catch (error: any) {
-    if (error.message?.includes("API_KEY_INVALID") || error.message?.includes("403") || error.message?.includes("API key not found")) {
+    console.error("Gemini API Error:", error);
+    // 如果報錯包含「Requested entity was not found」，通常是 Key 的問題
+    if (error.message?.includes("not found") || error.message?.includes("403") || error.message?.includes("API key")) {
       throw new Error("API_KEY_INVALID");
     }
     throw error;
