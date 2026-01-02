@@ -105,74 +105,81 @@ const App: React.FC = () => {
   }, [isListening]);
 
   return (
-    <div className="min-h-screen bg-[#fcfcfd] text-slate-800 pb-20 font-sans">
+    <div className="min-h-screen bg-[#fefaf6] text-slate-800 pb-20 font-sans">
       {showToast && (
-        <div className="fixed top-10 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-6 py-2 rounded-full text-xs font-bold z-[60] shadow-2xl">
+        <div className="fixed top-10 left-1/2 -translate-x-1/2 bg-slate-800/90 backdrop-blur-md text-white px-6 py-2 rounded-full text-xs font-bold z-[60] shadow-2xl">
           網址已複製到剪貼簿！
         </div>
       )}
 
       {/* 導覽列 */}
-      <nav className="sticky top-0 z-40 bg-white/70 backdrop-blur-xl border-b border-slate-100 px-6 py-4 flex items-center justify-between">
+      <nav className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-orange-50 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center space-x-2">
-          <div className="w-8 h-8 bg-orange-500 rounded-xl flex items-center justify-center shadow-lg shadow-orange-100">
-            <i className="fa-solid fa-heart text-white text-xs"></i>
+          <div className="w-9 h-9 bg-gradient-to-br from-orange-400 to-orange-600 rounded-xl flex items-center justify-center shadow-lg shadow-orange-100">
+            <i className="fa-solid fa-heart text-white text-sm"></i>
           </div>
-          <span className="font-black text-lg tracking-tight">溫暖譯站</span>
+          <span className="font-black text-xl tracking-tight bg-gradient-to-r from-orange-600 to-orange-400 bg-clip-text text-transparent">溫暖譯站</span>
         </div>
         <div className="flex items-center space-x-4">
-          <button onClick={copyUrl} className="text-slate-400 hover:text-orange-500 transition-colors">
+          <button onClick={copyUrl} className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-orange-500 transition-colors">
             <i className="fa-solid fa-share-nodes"></i>
           </button>
-          <div className="flex items-center space-x-1">
+          <div className="flex items-center space-x-1 bg-slate-100 px-2 py-1 rounded-full">
             <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-green-400' : 'bg-red-400'}`}></div>
-            <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">{isOnline ? 'Active' : 'Offline'}</span>
+            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{isOnline ? 'Active' : 'Offline'}</span>
           </div>
         </div>
       </nav>
 
       <main className="max-w-4xl mx-auto px-6 pt-8 space-y-8">
         {/* 情境切換區 */}
-        <div className="bg-white rounded-[2.5rem] p-2 shadow-sm border border-slate-50 flex space-x-2 overflow-x-auto no-scrollbar scroll-smooth">
+        <div className="bg-white/50 backdrop-blur-sm rounded-[2.5rem] p-2 shadow-inner border border-white flex space-x-2 overflow-x-auto no-scrollbar scroll-smooth">
           {SCENARIOS.map((s) => (
             <button
               key={s.type}
               onClick={() => { triggerHaptic('light'); setSelectedScenario(s.type); }}
-              className={`flex-shrink-0 px-5 py-3 rounded-2xl text-[11px] font-black transition-all ${
+              className={`flex-shrink-0 px-6 py-3 rounded-2xl text-[11px] font-black transition-all duration-300 ${
                 selectedScenario === s.type 
-                  ? 'bg-slate-900 text-white shadow-xl' 
-                  : 'text-slate-400 hover:bg-slate-50'
+                  ? 'bg-slate-900 text-white shadow-xl scale-105' 
+                  : 'text-slate-400 hover:bg-white hover:text-slate-600'
               }`}
             >
-              <i className={`fa-solid ${s.icon} mr-2`}></i> {s.type}
+              <i className={`fa-solid ${s.icon} mr-2 ${selectedScenario === s.type ? 'text-orange-400' : ''}`}></i> {s.type}
             </button>
           ))}
         </div>
 
         {/* 輸入與主按鈕 */}
-        <div className="bg-white rounded-[3rem] shadow-2xl shadow-slate-200/50 p-8 sm:p-10 border border-slate-50 relative">
+        <div className="bg-white rounded-[3.5rem] shadow-[0_20px_50px_rgba(251,146,60,0.12)] p-8 sm:p-12 border border-orange-50 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-orange-200 to-transparent"></div>
+          
           <textarea
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             placeholder={isListening ? '請說，我正在聽...' : currentPlaceholder}
-            className="w-full h-40 bg-transparent border-0 focus:ring-0 text-xl font-medium placeholder:text-slate-200 resize-none mb-8"
+            className="w-full h-44 bg-transparent border-0 focus:ring-0 text-2xl font-medium placeholder:text-slate-200 resize-none mb-6 leading-relaxed"
           />
 
           {error && (
-            <div className="mb-6 p-4 bg-red-50 text-red-500 rounded-2xl text-xs font-bold flex items-center">
+            <div className="mb-6 p-4 bg-red-50 text-red-500 rounded-3xl text-xs font-bold flex items-center border border-red-100 animate-pulse">
               <i className="fa-solid fa-circle-exclamation mr-3 text-sm"></i> {error}
             </div>
           )}
 
-          <div className="flex items-center justify-between">
-            <button onClick={() => { setInputText(''); triggerHaptic('light'); }} className="text-slate-300 text-[11px] font-black tracking-widest hover:text-slate-400 active:scale-90 transition-all">
-              清除內容
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
+            <button 
+              onClick={() => { setInputText(''); triggerHaptic('light'); }} 
+              className="text-slate-300 text-[11px] font-black tracking-[0.2em] hover:text-orange-400 active:scale-90 transition-all uppercase"
+            >
+              <i className="fa-solid fa-trash-can mr-2"></i> 清除內容
             </button>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-4 w-full sm:w-auto">
               <button
                 onClick={toggleListening}
-                className={`w-14 h-14 rounded-full flex items-center justify-center transition-all shadow-lg ${
-                  isListening ? 'bg-red-500 text-white animate-pulse shadow-red-100' : 'bg-slate-100 text-slate-500'
+                className={`w-16 h-16 rounded-3xl flex items-center justify-center transition-all shadow-xl ${
+                  isListening 
+                    ? 'bg-red-500 text-white animate-pulse shadow-red-200 scale-110' 
+                    : 'bg-slate-50 text-slate-400 hover:bg-orange-50 hover:text-orange-400'
                 }`}
               >
                 <i className={`fa-solid ${isListening ? 'fa-stop text-xl' : 'fa-microphone text-xl'}`}></i>
@@ -180,9 +187,9 @@ const App: React.FC = () => {
               <button
                 onClick={handleTranslate}
                 disabled={loading || !inputText.trim()}
-                className="px-10 h-14 bg-orange-500 text-white rounded-full font-black text-sm shadow-xl shadow-orange-200 disabled:opacity-20 active:scale-95 transition-all"
+                className="flex-1 sm:flex-none px-12 h-16 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-3xl font-black text-base shadow-2xl shadow-orange-200 disabled:opacity-20 active:scale-95 transition-all hover:shadow-orange-300 flex items-center justify-center"
               >
-                {loading ? <i className="fa-solid fa-circle-notch fa-spin mr-2"></i> : null}
+                {loading ? <i className="fa-solid fa-circle-notch fa-spin mr-3"></i> : <i className="fa-solid fa-wand-magic-sparkles mr-3"></i>}
                 {loading ? '轉化中' : '換句話說'}
               </button>
             </div>
@@ -191,29 +198,37 @@ const App: React.FC = () => {
 
         {/* 翻譯結果展示 */}
         {(streamingText || result) && (
-          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-6 duration-700">
-            <div className="bg-white border-2 border-orange-100 rounded-[3rem] p-8 sm:p-10 shadow-xl relative overflow-hidden">
-               <div className="absolute top-0 right-0 w-32 h-32 bg-orange-50 rounded-full -mr-16 -mt-16 opacity-50"></div>
-               <div className="relative z-10 space-y-6">
-                 <div className="flex items-center space-x-2">
-                   <span className="bg-orange-500 text-white text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest">
-                     Warm Response
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-8 duration-700">
+            <div className="bg-white border-2 border-orange-100 rounded-[3.5rem] p-8 sm:p-12 shadow-2xl relative overflow-hidden group">
+               <div className="absolute -top-12 -right-12 w-48 h-48 bg-orange-50 rounded-full opacity-40 group-hover:scale-110 transition-transform duration-1000"></div>
+               <div className="relative z-10 space-y-8">
+                 <div className="flex items-center space-x-3">
+                   <div className="h-0.5 w-8 bg-orange-500"></div>
+                   <span className="text-orange-500 text-[10px] font-black uppercase tracking-[0.3em]">
+                     溫柔的轉換
                    </span>
                  </div>
-                 <p className="text-2xl sm:text-3xl font-bold text-slate-800 leading-[1.4] whitespace-pre-wrap">
-                   「{streamingText}」
-                   {loading && !result && <span className="inline-block w-1.5 h-7 ml-1 bg-orange-300 animate-pulse"></span>}
+                 
+                 <p className="text-3xl sm:text-4xl font-bold text-slate-800 leading-[1.4] whitespace-pre-wrap tracking-tight">
+                   {streamingText}
+                   {loading && !result && <span className="inline-block w-2 h-10 ml-2 bg-orange-300 animate-pulse align-middle"></span>}
                  </p>
 
                  {result && (
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-8 border-t border-slate-50">
-                     <div className="space-y-3">
-                       <h4 className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">心理內在冰山</h4>
-                       <p className="text-sm text-slate-500 leading-relaxed">{result.psychologicalContext}</p>
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-10 pt-10 border-t border-orange-50">
+                     <div className="space-y-4">
+                       <h4 className="flex items-center text-[11px] font-black text-orange-400 uppercase tracking-[0.2em]">
+                         <i className="fa-solid fa-mountain mr-2"></i> 心理內在冰山
+                       </h4>
+                       <p className="text-base text-slate-500 leading-relaxed font-medium">{result.psychologicalContext}</p>
                      </div>
-                     <div className="space-y-3">
-                       <h4 className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">當下具體行動</h4>
-                       <p className="text-sm text-slate-500 leading-relaxed font-bold">{result.suggestedAction}</p>
+                     <div className="space-y-4">
+                       <h4 className="flex items-center text-[11px] font-black text-orange-400 uppercase tracking-[0.2em]">
+                         <i className="fa-solid fa-person-rays mr-2"></i> 當下具體行動
+                       </h4>
+                       <div className="p-5 bg-orange-50 rounded-3xl border border-orange-100">
+                         <p className="text-base text-orange-800 leading-relaxed font-bold">{result.suggestedAction}</p>
+                       </div>
                      </div>
                    </div>
                  )}
@@ -223,24 +238,31 @@ const App: React.FC = () => {
         )}
 
         {/* 歷史紀錄與腳註 */}
-        <section className="bg-orange-50 p-8 rounded-[3rem] border border-orange-100 flex items-start space-x-6">
-           <div className="text-orange-500 mt-1"><i className="fa-solid fa-mobile-screen text-2xl"></i></div>
-           <div className="space-y-2">
-             <h4 className="font-black text-sm text-orange-900">手機專屬溫暖建議</h4>
-             <p className="text-[11px] text-orange-800/60 leading-relaxed">
+        <section className="bg-white rounded-[3rem] p-10 border border-orange-100/50 flex flex-col md:flex-row items-center gap-8 shadow-sm">
+           <div className="w-20 h-20 bg-orange-100 text-orange-500 rounded-3xl flex items-center justify-center shrink-0">
+             <i className="fa-solid fa-mobile-screen-button text-3xl"></i>
+           </div>
+           <div className="space-y-3 text-center md:text-left">
+             <h4 className="font-black text-lg text-slate-800">隨身攜帶的溫柔</h4>
+             <p className="text-sm text-slate-500 leading-relaxed max-w-xl">
                在手機瀏覽器點選「加入主畫面」，將此站存為 App。<br/>
-               當情緒湧上時，隨時拿出手機，讓溫柔的力量伴您左右。
+               當情緒湧上、話要脫口而出前，讓溫柔的力量伴您左右。
              </p>
            </div>
         </section>
 
-        <footer className="text-center space-y-4 pt-8">
-           <p className="text-[10px] text-slate-300 font-bold uppercase tracking-[0.4em]">Healing Through Dialogue</p>
-           <div className="flex justify-center space-x-4">
+        <footer className="text-center space-y-6 pt-12 pb-6">
+           <div className="flex justify-center items-center space-x-4">
+             <div className="h-px w-8 bg-slate-200"></div>
+             <p className="text-[10px] text-slate-300 font-bold uppercase tracking-[0.5em]">Healing Dialogue</p>
+             <div className="h-px w-8 bg-slate-200"></div>
+           </div>
+           <div className="flex flex-wrap justify-center gap-3">
              {METHODOLOGIES.map(m => (
-               <span key={m.name} className="text-[9px] text-slate-300 border border-slate-100 px-3 py-1 rounded-full">{m.name}</span>
+               <span key={m.name} className="text-[10px] font-bold text-slate-400 border border-slate-100 px-4 py-1.5 rounded-full bg-white shadow-sm">{m.name}</span>
              ))}
            </div>
+           <p className="text-[10px] text-slate-300">© 溫暖譯站 · 專為愛與理解而生</p>
         </footer>
       </main>
     </div>
