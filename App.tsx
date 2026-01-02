@@ -16,6 +16,7 @@ const App: React.FC = () => {
   const [showDisclaimer, setShowDisclaimer] = useState(false);
   const [history, setHistory] = useState<TranslationResult[]>([]);
   const [bootError, setBootError] = useState<string | null>(null);
+  const [showToast, setShowToast] = useState(false);
   
   // --- Live Mode & Audio Handling ---
   const [isLiveMode, setIsLiveMode] = useState(false);
@@ -58,6 +59,13 @@ const App: React.FC = () => {
       const patterns = { light: 10, medium: [30, 50, 30], heavy: [100, 50, 100] };
       navigator.vibrate(patterns[type]);
     }
+  };
+
+  const copyUrlToClipboard = () => {
+    navigator.clipboard.writeText(window.location.href);
+    setShowToast(true);
+    triggerHaptic('light');
+    setTimeout(() => setShowToast(false), 2000);
   };
 
   const handleTranslate = useCallback(async () => {
@@ -156,6 +164,13 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 pb-12 select-none overflow-x-hidden font-sans">
+      {/* Toast Notification */}
+      {showToast && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-6 py-2 rounded-full text-xs font-bold z-[60] shadow-xl animate-in fade-in slide-in-from-top-4">
+          網址已複製，快傳送到手機吧！
+        </div>
+      )}
+
       {!isOnline && (
         <div className="bg-red-500 text-white text-[10px] py-2 text-center font-bold sticky top-0 z-50">
           <i className="fa-solid fa-cloud-slash mr-1"></i> 離線模式：翻譯功能暫時受限
@@ -192,14 +207,19 @@ const App: React.FC = () => {
             </div>
             <span className="font-black tracking-tighter text-slate-800">溫暖譯站</span>
           </div>
-          <button onClick={toggleLiveMode} className={`flex items-center space-x-2 px-4 py-2 rounded-full text-[10px] font-black transition-all active:scale-90 ${isLiveMode ? 'bg-red-500 text-white shadow-lg shadow-red-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
-            <div className={`w-1.5 h-1.5 rounded-full ${isLiveMode ? 'bg-white animate-pulse' : 'bg-slate-400'}`}></div>
-            <span>{isLiveMode ? '陪伴中' : '啟動陪伴'}</span>
-          </button>
+          <div className="flex items-center space-x-3">
+            <button onClick={copyUrlToClipboard} className="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-orange-500 transition-colors">
+              <i className="fa-solid fa-share-nodes text-sm"></i>
+            </button>
+            <button onClick={toggleLiveMode} className={`flex items-center space-x-2 px-4 py-2 rounded-full text-[10px] font-black transition-all active:scale-90 ${isLiveMode ? 'bg-red-500 text-white shadow-lg shadow-red-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
+              <div className={`w-1.5 h-1.5 rounded-full ${isLiveMode ? 'bg-white animate-pulse' : 'bg-slate-400'}`}></div>
+              <span>{isLiveMode ? '陪伴中' : '啟動陪伴'}</span>
+            </button>
+          </div>
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-6 mt-8 space-y-8">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 mt-6 sm:mt-8 space-y-6 sm:space-y-8">
         {isLiveMode && (
           <div className="relative group">
             <div className="absolute -inset-1 bg-gradient-to-r from-orange-400 to-red-400 rounded-[3rem] blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
@@ -213,7 +233,7 @@ const App: React.FC = () => {
                 </div>
               </div>
               <div className="space-y-6">
-                <h2 className="text-white text-2xl font-bold leading-tight">{liveAdvice}</h2>
+                <h2 className="text-white text-xl sm:text-2xl font-bold leading-tight">{liveAdvice}</h2>
                 <div className="bg-white/5 border border-white/10 px-4 py-2 rounded-2xl text-[10px] text-slate-400 font-bold inline-block"><i className="fa-solid fa-shield-halved mr-2 text-blue-400"></i> 抗噪模式已啟動</div>
               </div>
               <div className="mt-8 pt-6 border-t border-white/5 flex items-center justify-between">
@@ -226,18 +246,18 @@ const App: React.FC = () => {
 
         {!isLiveMode && (streamingText || result) && (
           <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-500">
-            <div className="bg-white border-2 border-orange-400 rounded-[3rem] p-8 shadow-2xl shadow-orange-100/50 relative">
+            <div className="bg-white border-2 border-orange-400 rounded-[2.5rem] sm:rounded-[3rem] p-6 sm:p-8 shadow-2xl shadow-orange-100/50 relative">
               <div className="absolute -top-3 left-8 bg-orange-500 text-white text-[10px] font-black px-4 py-1 rounded-full shadow-lg">
                 <i className="fa-solid fa-wand-magic-sparkles mr-1"></i> SUGGESTED RESPONSE
               </div>
-              <p className="text-2xl sm:text-3xl font-black text-slate-800 leading-[1.3] mt-2 whitespace-pre-wrap">「{streamingText}」</p>
+              <p className="text-xl sm:text-3xl font-black text-slate-800 leading-[1.3] mt-2 whitespace-pre-wrap">「{streamingText}」</p>
               {result && (
-                <div className="mt-8 pt-8 border-t border-slate-50 grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="bg-slate-50 p-5 rounded-[2rem] border border-slate-100">
+                <div className="mt-6 pt-6 sm:mt-8 sm:pt-8 border-t border-slate-50 grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                  <div className="bg-slate-50 p-4 sm:p-5 rounded-[2rem] border border-slate-100">
                     <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">心理需求洞察</div>
                     <p className="text-xs text-slate-600 leading-relaxed font-medium">{result.psychologicalContext}</p>
                   </div>
-                  <div className="bg-orange-50 p-5 rounded-[2rem] border border-orange-100">
+                  <div className="bg-orange-50 p-4 sm:p-5 rounded-[2rem] border border-orange-100">
                     <div className="text-[9px] font-black text-orange-500 uppercase tracking-widest mb-2">建議當下行動</div>
                     <p className="text-xs text-orange-800/80 leading-relaxed font-bold">{result.suggestedAction}</p>
                   </div>
@@ -248,24 +268,24 @@ const App: React.FC = () => {
         )}
 
         {!isLiveMode && (
-          <div className={`bg-white rounded-[3rem] shadow-sm border transition-all duration-500 overflow-hidden ${isListening ? 'border-red-400 ring-[6px] ring-red-50' : 'border-slate-200'}`}>
-            <div className="px-6 py-4 bg-slate-50/50 border-b border-slate-100 flex space-x-3 overflow-x-auto no-scrollbar scroll-smooth">
+          <div className={`bg-white rounded-[2.5rem] sm:rounded-[3rem] shadow-sm border transition-all duration-500 overflow-hidden ${isListening ? 'border-red-400 ring-[6px] ring-red-50' : 'border-slate-200'}`}>
+            <div className="px-4 sm:px-6 py-4 bg-slate-50/50 border-b border-slate-100 flex space-x-3 overflow-x-auto no-scrollbar scroll-smooth">
               {SCENARIOS.map((s) => (
-                <button key={s.type} onClick={() => { setSelectedScenario(s.type); triggerHaptic('light'); }} className={`whitespace-nowrap px-5 py-2.5 rounded-2xl text-[11px] font-black transition-all active:scale-90 ${selectedScenario === s.type ? 'bg-slate-800 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-100'}`}>
+                <button key={s.type} onClick={() => { setSelectedScenario(s.type); triggerHaptic('light'); }} className={`whitespace-nowrap px-4 py-2 rounded-2xl text-[11px] font-black transition-all active:scale-90 ${selectedScenario === s.type ? 'bg-slate-800 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-100'}`}>
                   <i className={`fa-solid ${s.icon} mr-2`}></i> {s.type}
                 </button>
               ))}
             </div>
-            <div className="p-8">
-              <textarea value={inputText} onChange={(e) => setInputText(e.target.value)} placeholder={isListening ? '我正在傾聽您的感受...' : currentPlaceholder} className={`w-full transition-all duration-300 text-xl font-medium border-0 bg-transparent focus:ring-0 outline-none resize-none placeholder:text-slate-200 ${result ? 'h-24' : 'h-40'}`} />
+            <div className="p-6 sm:p-8">
+              <textarea value={inputText} onChange={(e) => setInputText(e.target.value)} placeholder={isListening ? '我正在傾聽您的感受...' : currentPlaceholder} className={`w-full transition-all duration-300 text-lg sm:text-xl font-medium border-0 bg-transparent focus:ring-0 outline-none resize-none placeholder:text-slate-200 ${result ? 'h-24' : 'h-40'}`} />
               {error && <div className="bg-red-50 text-red-500 p-4 rounded-2xl text-[11px] font-bold mb-4 flex items-center"><i className="fa-solid fa-circle-exclamation mr-2"></i>{error}</div>}
               <div className="flex justify-between items-center pt-6 border-t border-slate-50">
                 <button onClick={() => { setInputText(''); triggerHaptic('light'); }} className="text-slate-300 text-[11px] font-black px-2 active:text-slate-500">清除內容</button>
                 <div className="flex space-x-4">
-                  <button onClick={toggleListening} className={`w-14 h-14 rounded-full flex items-center justify-center transition-all active:scale-90 ${isListening ? 'bg-red-500 text-white animate-pulse shadow-xl shadow-red-200' : 'bg-slate-100 text-slate-600'}`}>
+                  <button onClick={toggleListening} className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center transition-all active:scale-90 ${isListening ? 'bg-red-500 text-white animate-pulse shadow-xl shadow-red-200' : 'bg-slate-100 text-slate-600'}`}>
                     <i className={`fa-solid ${isListening ? 'fa-stop text-lg' : 'fa-microphone text-xl'}`}></i>
                   </button>
-                  <button onClick={handleTranslate} disabled={loading || !inputText.trim()} className="px-8 bg-orange-500 text-white rounded-full font-black text-sm shadow-xl shadow-orange-200 disabled:bg-slate-100 disabled:text-slate-300 transition-all active:scale-95">
+                  <button onClick={handleTranslate} disabled={loading || !inputText.trim()} className="px-6 sm:px-8 bg-orange-500 text-white rounded-full font-black text-sm shadow-xl shadow-orange-200 disabled:bg-slate-100 disabled:text-slate-300 transition-all active:scale-95">
                     {loading ? <i className="fa-solid fa-circle-notch fa-spin"></i> : '翻譯成溫暖'}
                   </button>
                 </div>
@@ -282,7 +302,7 @@ const App: React.FC = () => {
             </div>
             <div className="grid grid-cols-1 gap-4">
               {history.map((h, i) => (
-                <div key={i} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col space-y-2 animate-in slide-in-from-left-4 duration-300">
+                <div key={i} className="bg-white p-5 sm:p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col space-y-2 animate-in slide-in-from-left-4 duration-300">
                   <p className="text-[9px] text-slate-400 font-bold line-clamp-1">您原本說：{h.originalText}</p>
                   <p className="text-sm font-bold text-slate-700 leading-relaxed">「{h.translatedText}」</p>
                 </div>
@@ -291,29 +311,29 @@ const App: React.FC = () => {
           </section>
         )}
 
-        <section className="bg-orange-50 p-8 rounded-[2.5rem] border border-orange-100">
+        <section className="bg-orange-50 p-6 sm:p-8 rounded-[2.5rem] border border-orange-100">
           <div className="flex items-start space-x-4">
             <div className="text-orange-500 mt-1"><i className="fa-solid fa-mobile-screen-button text-2xl"></i></div>
             <div className="space-y-2">
               <h4 className="font-black text-orange-900 text-sm">如何獲得完整體驗？</h4>
               <p className="text-[11px] text-orange-800/70 leading-relaxed">
-                1. 使用 Vercel 佈署後開啟網址。<br/>
-                2. 點選瀏覽器選單中的「加入主畫面」。<br/>
-                3. 從桌面開啟後，您將擁有無網址列、支援震動回饋的完整 App 實測感。
+                1. 點擊頂部分享按鈕複製網址傳到手機。<br/>
+                2. 在手機瀏覽器選單點選「加入主畫面」。<br/>
+                3. 從桌面開啟後，將擁有全螢幕 App 般的順暢感。
               </p>
             </div>
           </div>
         </section>
 
-        <section className="bg-slate-800 rounded-[3rem] p-10 text-white relative overflow-hidden">
+        <section className="bg-slate-800 rounded-[2.5rem] sm:rounded-[3rem] p-8 sm:p-10 text-white relative overflow-hidden">
           <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="md:col-span-1">
               <h3 className="text-[10px] font-black text-orange-400 uppercase tracking-[0.2em] mb-4">Core Theories</h3>
               <p className="text-[11px] text-slate-400 leading-relaxed">我們整合了全球公認的三大教養體系，將冰冷的心理學轉化為您口袋裡的溫柔力量。</p>
             </div>
-            <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
               {METHODOLOGIES.map((m, i) => (
-                <div key={i} className="bg-white/5 p-5 rounded-3xl border border-white/5">
+                <div key={i} className="bg-white/5 p-4 sm:p-5 rounded-3xl border border-white/5">
                   <div className="text-[11px] font-black text-orange-200 mb-2">{m.name}</div>
                   <p className="text-[10px] text-slate-400 leading-relaxed">{m.desc}</p>
                 </div>

@@ -8,26 +8,15 @@ export const translateToPositiveParentingStream = async (
   scenario: Scenario,
   onChunk: (partialText: string) => void
 ): Promise<TranslationResult> => {
-  // 嘗試從多個可能的注入點獲取 API Key
-  let apiKey: string | undefined;
-  
-  try {
-    // 1. 標準 Node/Vercel 注入
-    if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
-      apiKey = process.env.API_KEY;
-    }
-    // 2. 瀏覽器窗口注入 (部分打包工具)
-    else if (typeof window !== 'undefined' && (window as any).process?.env?.API_KEY) {
-      apiKey = (window as any).process.env.API_KEY;
-    }
-  } catch (e) {
-    console.warn("無法存取環境變數:", e);
-  }
+  // 優先從 Vercel 注入的標準環境變數讀取
+  const apiKey = process.env.API_KEY;
 
   if (!apiKey || apiKey === "undefined" || apiKey === "") {
+    console.error("API Key 缺失，請檢查 Vercel 環境變數設定。");
     throw new Error("API_KEY_MISSING");
   }
 
+  // 每次調用都創建新實例以確保抓到最新的 Key
   const ai = new GoogleGenAI({ apiKey });
   
   try {
@@ -62,6 +51,7 @@ export const translateToPositiveParentingStream = async (
       fullContent += chunkText;
       
       try {
+        // 嘗試提取正在生成的翻譯文字，提供即時體感
         const match = fullContent.match(/"translatedText"\s*:\s*"([^"]*)/);
         if (match && match[1]) {
           onChunk(match[1].replace(/\\n/g, '\n'));
